@@ -17,5 +17,8 @@ class EvalReport(Base):
     frame_count: Mapped[int] = mapped_column(Integer, default=0)
     anomalies: Mapped[list] = mapped_column(JSON, default=list)
     replay_frames: Mapped[list | None] = mapped_column(JSON, nullable=True)  # for frontend viewer
+    waypoints: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    obstacles: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    collision_times: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [t, ...] for viewer markers
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())

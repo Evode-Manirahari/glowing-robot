@@ -77,6 +77,7 @@ async def upload_mission(
         status="pending",
     )
     db.add(mission)
+    await db.commit()  # commit mission first so the FK constraint on jobs is satisfied
 
     job_id = str(uuid.uuid4())
     job = Job(id=job_id, mission_id=mission_id, type="replay", status="queued")
@@ -130,8 +131,9 @@ async def get_replay_data(
 
     return {
         "frames": report.replay_frames,
-        "waypoints": [],  # stored in eval_report; extend later
-        "obstacles": [],
+        "waypoints": report.waypoints or [],
+        "obstacles": report.obstacles or [],
+        "collision_times": report.collision_times or [],
     }
 
 

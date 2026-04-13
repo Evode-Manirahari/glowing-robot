@@ -19,6 +19,7 @@ export default function Nav() {
       </Link>
       <Link to="/" style={{ color: "#6b7280", textDecoration: "none", fontSize: 14 }}>Missions</Link>
       <Link to="/upload" style={{ color: "#6b7280", textDecoration: "none", fontSize: 14 }}>Upload</Link>
+      <Link to="/compare" style={{ color: "#6b7280", textDecoration: "none", fontSize: 14 }}>Compare</Link>
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
         <span style={{ fontSize: 13, color: "#6b7280" }}>{user.name}</span>
         <button onClick={handleLogout} style={{ fontSize: 13, color: "#6b7280", background: "none", border: "none", cursor: "pointer", padding: 0 }}>

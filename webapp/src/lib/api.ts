@@ -115,6 +115,7 @@ export interface EvalReport {
   duration_s: number;
   frame_count: number;
   anomalies: string[];
+  collision_times: number[];
   ai_summary: string | null;
 }
 
@@ -135,6 +136,19 @@ export interface ReplayFrame {
   velocity: number;
 }
 
-export async function getReplayData(missionId: string): Promise<{ frames: ReplayFrame[]; waypoints: { x: number; y: number }[]; obstacles: { x: number; y: number; radius: number }[] }> {
+export async function getReplayData(missionId: string): Promise<{ frames: ReplayFrame[]; waypoints: { x: number; y: number }[]; obstacles: { x: number; y: number; radius: number }[]; collision_times: number[] }> {
   return request(`/missions/${missionId}/replay`);
+}
+
+// Policy comparison
+export interface CompareResponse {
+  report_a: EvalReport;
+  report_b: EvalReport;
+  mission_a_name: string;
+  mission_b_name: string;
+  comparison_summary: string;
+}
+
+export async function compareMissions(missionA: string, missionB: string): Promise<CompareResponse> {
+  return request<CompareResponse>(`/evals/compare?mission_a=${missionA}&mission_b=${missionB}`);
 }

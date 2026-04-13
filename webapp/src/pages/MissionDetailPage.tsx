@@ -1,5 +1,5 @@
-import { useParams } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getMission, getEvalReport, getReplayData, requestAiSummary, type Mission, type EvalReport, type ReplayFrame } from "../lib/api";
 import ReplayViewer from "../components/ReplayViewer";
 import JobStatus from "../components/JobStatus";
@@ -10,10 +10,11 @@ export default function MissionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [mission, setMission] = useState<Mission | null>(null);
   const [report, setReport] = useState<EvalReport | null>(null);
-  const [replayData, setReplayData] = useState<{ frames: ReplayFrame[]; waypoints: { x: number; y: number }[]; obstacles: { x: number; y: number; radius: number }[] } | null>(null);
+  const [replayData, setReplayData] = useState<{ frames: ReplayFrame[]; waypoints: { x: number; y: number }[]; obstacles: { x: number; y: number; radius: number }[]; collision_times: number[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -28,20 +29,45 @@ export default function MissionDetailPage() {
       setReport(r);
       setReplayData(rd);
     }
+    return m;
   }, [id]);
 
+  // Auto-poll when mission is still processing (no sessionStorage jobId needed)
   useEffect(() => {
-    loadData().finally(() => setLoading(false));
-
-    // Check if there's an in-progress job from sessionStorage
+    if (!id) return;
     const pendingJob = sessionStorage.getItem(`job_${id}`);
     if (pendingJob) setJobId(pendingJob);
+
+    loadData().then(m => {
+      if (!m) return;
+      if (m.status === "pending" || m.status === "replaying") {
+        pollRef.current = setInterval(async () => {
+          const updated = await getMission(id).catch(() => null);
+          if (!updated) return;
+          setMission(updated);
+          if (updated.status === "evaluated" || updated.status === "failed") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            if (updated.status === "evaluated") {
+              const [r, rd] = await Promise.all([
+                getEvalReport(id).catch(() => null),
+                getReplayData(id).catch(() => null),
+              ]);
+              setReport(r);
+              setReplayData(rd);
+            }
+          }
+        }, 2000);
+      }
+    }).finally(() => setLoading(false));
+
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [id, loadData]);
 
   function onJobComplete(updatedMission: Mission) {
     setMission(updatedMission);
     if (id) sessionStorage.removeItem(`job_${id}`);
     setJobId(null);
+    if (pollRef.current) clearInterval(pollRef.current);
     loadData();
   }
 
@@ -49,7 +75,6 @@ export default function MissionDetailPage() {
     if (!id) return;
     setSummaryLoading(true);
     await requestAiSummary(id);
-    // Poll for summary
     let tries = 0;
     while (tries < 20) {
       await new Promise(r => setTimeout(r, 1500));
@@ -68,7 +93,17 @@ export default function MissionDetailPage() {
       <div style={{ marginBottom: 8 }}>
         <span style={{ color: "#6b7280", fontSize: 13 }}>Mission</span>
       </div>
-      <h1 style={{ marginBottom: 8, marginTop: 4 }}>{mission.name}</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+        <h1 style={{ margin: 0 }}>{mission.name}</h1>
+        {mission.status === "evaluated" && (
+          <Link
+            to={`/compare?a=${mission.id}`}
+            style={{ fontSize: 13, color: "#6b7280", textDecoration: "none", border: "1px solid #d1d5db", padding: "5px 12px", borderRadius: 6 }}
+          >
+            Compare with...
+          </Link>
+        )}
+      </div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 32 }}>
         <span style={{ fontSize: 13, color: "#6b7280" }}>{mission.robot_type}</span>
         <span style={{ fontSize: 13, color: "#6b7280" }}>·</span>
@@ -87,10 +122,21 @@ export default function MissionDetailPage() {
         </div>
       )}
 
-      {/* Processing state */}
+      {/* Auto-polling state */}
       {!jobId && (mission.status === "pending" || mission.status === "replaying") && (
-        <div style={{ marginBottom: 24, padding: 16, background: "#f9fafb", borderRadius: 8, color: "#6b7280", fontSize: 14 }}>
-          Replay in progress... Refresh in a moment.
+        <div style={{ marginBottom: 24, padding: 16, background: "#f9fafb", borderRadius: 8, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid #6b7280", borderTopColor: "transparent", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
+          <span style={{ color: "#6b7280", fontSize: 14 }}>
+            {mission.status === "replaying" ? "Running replay..." : "Queued..."}
+          </span>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* Failed state */}
+      {mission.status === "failed" && (
+        <div style={{ marginBottom: 24, padding: 16, background: "#fef2f2", borderRadius: 8, color: "#dc2626", fontSize: 14 }}>
+          Replay failed. Check your log file format and try uploading again.
         </div>
       )}
 
@@ -147,6 +193,7 @@ export default function MissionDetailPage() {
             frames={replayData.frames}
             waypoints={replayData.waypoints}
             obstacles={replayData.obstacles}
+            collisionTimes={replayData.collision_times}
           />
         </div>
       )}

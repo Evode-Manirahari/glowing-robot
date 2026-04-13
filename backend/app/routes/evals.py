@@ -22,14 +22,22 @@ class EvalReportOut(BaseModel):
     duration_s: float
     frame_count: int
     anomalies: list[str]
+    collision_times: list[float] = []
     ai_summary: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
+class CompareResponse(BaseModel):
+    report_a: EvalReportOut
+    report_b: EvalReportOut
+    mission_a_name: str
+    mission_b_name: str
+    comparison_summary: str
+
+
 async def _get_report_for_user(mission_id: str, user: User, db: AsyncSession) -> EvalReport:
-    # Verify mission belongs to user
     m = await db.execute(
         select(Mission).where(Mission.id == mission_id, Mission.user_id == user.id)
     )
@@ -41,6 +49,56 @@ async def _get_report_for_user(mission_id: str, user: User, db: AsyncSession) ->
     if not report:
         raise HTTPException(404, "Eval report not ready yet")
     return report
+
+
+@router.get("/compare", response_model=CompareResponse)
+async def compare_missions(
+    mission_a: str,
+    mission_b: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Compare two missions side by side with an AI-generated analysis."""
+    if mission_a == mission_b:
+        raise HTTPException(400, "Select two different missions to compare")
+
+    report_a = await _get_report_for_user(mission_a, user, db)
+    report_b = await _get_report_for_user(mission_b, user, db)
+
+    # Fetch mission names for the summary
+    ma = await db.execute(select(Mission).where(Mission.id == mission_a))
+    mb = await db.execute(select(Mission).where(Mission.id == mission_b))
+    name_a = ma.scalar_one().name
+    name_b = mb.scalar_one().name
+
+    comparison_summary = await eval_service.generate_comparison_summary(
+        report_a={
+            "verdict": report_a.verdict,
+            "collision_count": report_a.collision_count,
+            "max_deviation_m": report_a.max_deviation_m,
+            "completion_rate": report_a.completion_rate,
+            "duration_s": report_a.duration_s,
+            "anomalies": report_a.anomalies,
+        },
+        name_a=name_a,
+        report_b={
+            "verdict": report_b.verdict,
+            "collision_count": report_b.collision_count,
+            "max_deviation_m": report_b.max_deviation_m,
+            "completion_rate": report_b.completion_rate,
+            "duration_s": report_b.duration_s,
+            "anomalies": report_b.anomalies,
+        },
+        name_b=name_b,
+    )
+
+    return CompareResponse(
+        report_a=EvalReportOut.model_validate(report_a),
+        report_b=EvalReportOut.model_validate(report_b),
+        mission_a_name=name_a,
+        mission_b_name=name_b,
+        comparison_summary=comparison_summary,
+    )
 
 
 @router.get("/{mission_id}/report", response_model=EvalReportOut)

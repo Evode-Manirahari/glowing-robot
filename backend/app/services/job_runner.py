@@ -76,6 +76,9 @@ async def _run_replay_and_eval(db, mission: Mission) -> None:
         frame_count=metrics["frame_count"],
         anomalies=metrics["anomalies"],
         replay_frames=metrics["replay_frames"],
+        waypoints=metrics.get("waypoints", []),
+        obstacles=metrics.get("obstacles", []),
+        collision_times=metrics.get("collision_times", []),
         ai_summary=ai_summary,
     )
     db.add(report)
