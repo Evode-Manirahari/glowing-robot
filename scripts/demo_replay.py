@@ -5,78 +5,50 @@ demo_replay.py — run a mission replay end-to-end from the CLI.
 Usage:
     python scripts/demo_replay.py sim/scenarios/warehouse_basic.json
     python scripts/demo_replay.py sim/scenarios/warehouse_collision.json
+    python scripts/demo_replay.py mylog.csv --robot-type AMR
 
 This is the canonical demo script. Every significant feature must have a
 runnable demo script in scripts/ before it is considered done.
 """
-import json
+import argparse
 import sys
 from pathlib import Path
 
-# Add project root to path so we can import sim/
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sim.replay.engine import load_log, replay
+from robot_api.parsers import parse_log
+from sim.replay.engine import replay
+from evals.metrics.compute import compute
+from evals.reports.generator import generate, save, print_summary
 
 
-def eval_report(result, log: dict) -> dict:
-    metrics = result.to_dict()
-    verdict = "fail" if metrics["collision_count"] > 0 else (
-        "warning" if metrics["max_deviation_m"] > 0.5 else "pass"
-    )
-    anomalies = []
-    if metrics["collision_count"] > 0:
-        anomalies.append(f"{metrics['collision_count']} collision(s) detected")
-    if metrics["max_deviation_m"] > 0.5:
-        anomalies.append(f"Max deviation {metrics['max_deviation_m']:.2f}m exceeds 0.5m threshold")
+def main() -> int:
+    parser = argparse.ArgumentParser(description="glowing-robot: replay a mission log")
+    parser.add_argument("log", help="Path to .json or .csv log file")
+    parser.add_argument("--robot-type", default="AMR", help="Robot type (default: AMR)")
+    parser.add_argument("--no-report", action="store_true", help="Skip saving report to disk")
+    args = parser.parse_args()
 
-    return {
-        "mission_name": log.get("name", "unknown"),
-        "robot_type": log.get("robot_type", "unknown"),
-        "verdict": verdict,
-        **metrics,
-        "anomalies": anomalies,
-    }
-
-
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python scripts/demo_replay.py <log.json>")
-        sys.exit(1)
-
-    log_path = Path(sys.argv[1])
+    log_path = Path(args.log)
     if not log_path.exists():
-        print(f"Error: {log_path} not found")
-        sys.exit(1)
+        print(f"Error: {log_path} not found", file=sys.stderr)
+        return 1
 
     print(f"\n--- glowing-robot: Mission Replay ---")
     print(f"Log: {log_path}\n")
 
-    log = load_log(log_path)
+    log = parse_log(log_path, robot_type=args.robot_type)
     result = replay(log)
-    report = eval_report(result, log)
+    metrics = compute(result)
+    report = generate(metrics, mission_name=log.get("name", log_path.stem))
 
-    verdict_icon = {"pass": "PASS", "fail": "FAIL", "warning": "WARN"}[report["verdict"]]
+    print_summary(report)
 
-    print(f"[{verdict_icon}] {report['mission_name']}")
-    print(f"      Robot:         {report['robot_type']}")
-    print(f"      Frames:        {report['frame_count']}")
-    print(f"      Duration:      {report['duration_s']:.1f}s")
-    print(f"      Collisions:    {report['collision_count']}")
-    print(f"      Max deviation: {report['max_deviation_m']:.3f}m")
-    print(f"      Completion:    {report['completion_rate'] * 100:.0f}%")
+    if not args.no_report:
+        out = Path("runs") / f"{log_path.stem}_report.json"
+        save(report, out)
+        print(f"\n  Report saved: {out}\n")
 
-    if report["anomalies"]:
-        print("\n  Anomalies:")
-        for a in report["anomalies"]:
-            print(f"    - {a}")
-
-    output_path = Path("runs") / f"{log_path.stem}_report.json"
-    output_path.parent.mkdir(exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(report, f, indent=2)
-
-    print(f"\n  Report saved: {output_path}\n")
     return 0 if report["verdict"] == "pass" else 1
 
 

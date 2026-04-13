@@ -1,6 +1,7 @@
 services:
   db:
-    image: postgres:16
+    image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: glowing_robot
       POSTGRES_USER: postgres
@@ -9,27 +10,51 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   backend:
-    build: ../backend
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-localdev}@db:5432/glowing_robot
       REDIS_URL: redis://redis:6379
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      UPLOAD_DIR: /app/uploads
+      RUNS_DIR: /app/runs
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ../backend:/app
+      - uploads_data:/app/uploads
       - runs_data:/app/runs
+      - ../sim:/app/../sim
+      - ../robot_api:/app/../robot_api
+      - ../evals:/app/../evals
 
 volumes:
   postgres_data:
+  uploads_data:
   runs_data:
