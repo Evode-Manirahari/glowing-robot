@@ -18,6 +18,8 @@ runs/
 
 # Infra secrets
 infra/.env
+infra/.env.prod
 
 # OS
 .DS_Store
+backend/.env

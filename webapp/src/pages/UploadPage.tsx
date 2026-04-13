@@ -53,11 +53,11 @@ export default function UploadPage() {
         </label>
 
         <label>
-          <div style={labelStyle}>Log file (.json or .csv)</div>
+          <div style={labelStyle}>Log file</div>
           <div style={{ border: "2px dashed #d1d5db", borderRadius: 8, padding: "24px", textAlign: "center", background: "#f9fafb" }}>
-            <input type="file" accept=".json,.csv" required onChange={e => setFile(e.target.files?.[0] ?? null)} />
+            <input type="file" accept=".json,.csv,.bag,.mcap,.db3" required onChange={e => setFile(e.target.files?.[0] ?? null)} />
             <p style={{ margin: "8px 0 0", fontSize: 12, color: "#9ca3af" }}>
-              Max 50 MB · JSON (native or ROS-bag-derived) · CSV with t, x, y columns
+              Max 50 MB · .bag (ROS1) · .mcap / .db3 (ROS2) · .json · .csv
             </p>
           </div>
         </label>

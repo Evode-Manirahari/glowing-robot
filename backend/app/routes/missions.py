@@ -64,8 +64,9 @@ async def upload_mission(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not log_file.filename.endswith((".json", ".csv")):
-        raise HTTPException(400, "Log must be .json or .csv")
+    ALLOWED = (".json", ".csv", ".bag", ".mcap", ".db3")
+    if not any(log_file.filename.endswith(ext) for ext in ALLOWED):
+        raise HTTPException(400, f"Log must be one of: {', '.join(ALLOWED)}")
     if log_file.size and log_file.size > 50 * 1024 * 1024:  # 50 MB limit
         raise HTTPException(413, "Log file too large (max 50 MB)")
 

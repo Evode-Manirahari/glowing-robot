@@ -1,0 +1,25 @@
+# Production backend — copies all source into the image.
+# Build context must be the repo root:
+#   docker build -f backend/Dockerfile.prod -t glowing-robot-backend .
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install deps first (cache layer)
+COPY backend/pyproject.toml .
+RUN pip install --no-cache-dir -e .
+
+# Copy all source packages
+COPY backend/app/ app/
+COPY sim/ sim/
+COPY robot_api/ robot_api/
+COPY evals/ evals/
+
+# Non-root user for security
+RUN useradd -m -u 1001 appuser && \
+    mkdir -p uploads runs && \
+    chown -R appuser:appuser /app
+USER appuser
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

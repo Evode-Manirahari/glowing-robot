@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      "/auth": "http://localhost:8000",
       "/missions": "http://localhost:8000",
       "/jobs": "http://localhost:8000",
       "/evals": "http://localhost:8000",
