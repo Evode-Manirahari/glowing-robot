@@ -1,0 +1,25 @@
+{
+  "name": "Warehouse basic — aisle navigation",
+  "description": "AMR navigates a single aisle from start to pick station. Two obstacles (shelving units).",
+  "robot_type": "AMR",
+  "timestep_s": 0.1,
+  "frames": [
+    {"t": 0.0, "x": 0.0, "y": 0.0, "theta": 0.0, "velocity": 0.0},
+    {"t": 0.1, "x": 0.1, "y": 0.0, "theta": 0.0, "velocity": 0.5},
+    {"t": 0.2, "x": 0.3, "y": 0.0, "theta": 0.0, "velocity": 1.0},
+    {"t": 0.3, "x": 0.6, "y": 0.0, "theta": 0.0, "velocity": 1.0},
+    {"t": 0.4, "x": 1.0, "y": 0.0, "theta": 0.0, "velocity": 1.0},
+    {"t": 0.5, "x": 1.5, "y": 0.0, "theta": 0.0, "velocity": 1.0},
+    {"t": 0.6, "x": 2.0, "y": 0.0, "theta": 0.0, "velocity": 0.5},
+    {"t": 0.7, "x": 2.4, "y": 0.0, "theta": 0.0, "velocity": 0.0}
+  ],
+  "waypoints": [
+    {"x": 0.5, "y": 0.0},
+    {"x": 1.5, "y": 0.0},
+    {"x": 2.4, "y": 0.0}
+  ],
+  "obstacles": [
+    {"x": 0.5, "y": 1.5, "radius": 0.3, "label": "shelving_A"},
+    {"x": 1.8, "y": -1.5, "radius": 0.3, "label": "shelving_B"}
+  ]
+}
