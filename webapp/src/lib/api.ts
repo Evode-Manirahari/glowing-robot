@@ -48,6 +48,34 @@ export async function getMe() {
   return request<{ id: string; email: string; name: string }>("/auth/me");
 }
 
+// API Keys
+export interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  key: string; // shown once
+}
+
+export async function listApiKeys(): Promise<ApiKey[]> {
+  return request<ApiKey[]>("/auth/api-keys");
+}
+
+export async function createApiKey(name: string): Promise<ApiKeyCreated> {
+  return request<ApiKeyCreated>("/auth/api-keys", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function revokeApiKey(id: string): Promise<void> {
+  return request<void>(`/auth/api-keys/${id}`, { method: "DELETE" });
+}
+
 // Missions
 export interface Mission {
   id: string;
@@ -59,8 +87,27 @@ export interface Mission {
   verdict: string | null;
 }
 
-export async function listMissions(): Promise<Mission[]> {
-  return request<Mission[]>("/missions/");
+export async function listMissions(params?: { verdict?: string; q?: string }): Promise<Mission[]> {
+  const search = new URLSearchParams();
+  if (params?.verdict) search.set("verdict", params.verdict);
+  if (params?.q) search.set("q", params.q);
+  const qs = search.toString();
+  return request<Mission[]>(`/missions/${qs ? "?" + qs : ""}`);
+}
+
+export async function downloadReport(missionId: string): Promise<void> {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`/missions/${missionId}/report/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error("Download failed");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? "report.json";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function getMission(id: string): Promise<Mission> {

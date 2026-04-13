@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { getMission, getEvalReport, getReplayData, requestAiSummary, type Mission, type EvalReport, type ReplayFrame } from "../lib/api";
+import { getMission, getEvalReport, getReplayData, requestAiSummary, downloadReport, type Mission, type EvalReport, type ReplayFrame } from "../lib/api";
 import ReplayViewer from "../components/ReplayViewer";
 import JobStatus from "../components/JobStatus";
 
@@ -96,12 +96,20 @@ export default function MissionDetailPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
         <h1 style={{ margin: 0 }}>{mission.name}</h1>
         {mission.status === "evaluated" && (
-          <Link
-            to={`/compare?a=${mission.id}`}
-            style={{ fontSize: 13, color: "#6b7280", textDecoration: "none", border: "1px solid #d1d5db", padding: "5px 12px", borderRadius: 6 }}
-          >
-            Compare with...
-          </Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => downloadReport(mission.id)}
+              style={{ fontSize: 13, color: "#6b7280", background: "none", border: "1px solid #d1d5db", padding: "5px 12px", borderRadius: 6, cursor: "pointer" }}
+            >
+              Download report
+            </button>
+            <Link
+              to={`/compare?a=${mission.id}`}
+              style={{ fontSize: 13, color: "#6b7280", textDecoration: "none", border: "1px solid #d1d5db", padding: "5px 12px", borderRadius: 6 }}
+            >
+              Compare with...
+            </Link>
+          </div>
         )}
       </div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 32 }}>

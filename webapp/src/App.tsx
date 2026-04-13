@@ -4,6 +4,7 @@ import MissionsPage from "./pages/MissionsPage";
 import MissionDetailPage from "./pages/MissionDetailPage";
 import UploadPage from "./pages/UploadPage";
 import ComparePage from "./pages/ComparePage";
+import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import Nav from "./components/Nav";
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/missions/:id" element={<RequireAuth><MissionDetailPage /></RequireAuth>} />
         <Route path="/upload" element={<RequireAuth><UploadPage /></RequireAuth>} />
         <Route path="/compare" element={<RequireAuth><ComparePage /></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
       </Routes>
     </div>
   );

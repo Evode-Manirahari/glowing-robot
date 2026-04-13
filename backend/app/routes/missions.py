@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.models.user import User
 from app.services.auth import get_current_user
 from app.services import storage, job_runner
 import uuid
+import json
 
 router = APIRouter()
 
@@ -40,13 +42,16 @@ async def list_missions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     limit: int = Query(50, le=200),
+    verdict: Optional[str] = Query(None, description="Filter by verdict: pass|fail|warning"),
+    q: Optional[str] = Query(None, description="Search by mission name"),
 ):
-    result = await db.execute(
-        select(Mission)
-        .where(Mission.user_id == user.id)
-        .order_by(Mission.uploaded_at.desc())
-        .limit(limit)
-    )
+    stmt = select(Mission).where(Mission.user_id == user.id)
+    if verdict:
+        stmt = stmt.where(Mission.verdict == verdict)
+    if q:
+        stmt = stmt.where(Mission.name.ilike(f"%{q}%"))
+    stmt = stmt.order_by(Mission.uploaded_at.desc()).limit(limit)
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 
@@ -135,6 +140,53 @@ async def get_replay_data(
         "obstacles": report.obstacles or [],
         "collision_times": report.collision_times or [],
     }
+
+
+@router.get("/{mission_id}/report/download")
+async def download_report(
+    mission_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Download the full eval report as a JSON file."""
+    m_result = await db.execute(
+        select(Mission).where(Mission.id == mission_id, Mission.user_id == user.id)
+    )
+    mission = m_result.scalar_one_or_none()
+    if not mission:
+        raise HTTPException(404, "Mission not found")
+
+    r_result = await db.execute(select(EvalReport).where(EvalReport.mission_id == mission_id))
+    report = r_result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(404, "Report not ready yet")
+
+    payload = {
+        "schema_version": "1.0",
+        "mission": {
+            "id": mission.id,
+            "name": mission.name,
+            "robot_type": mission.robot_type,
+            "uploaded_at": mission.uploaded_at.isoformat(),
+            "log_filename": mission.log_filename,
+        },
+        "verdict": report.verdict,
+        "metrics": {
+            "collision_count": report.collision_count,
+            "max_deviation_m": report.max_deviation_m,
+            "completion_rate": report.completion_rate,
+            "duration_s": report.duration_s,
+            "frame_count": report.frame_count,
+        },
+        "anomalies": report.anomalies,
+        "ai_summary": report.ai_summary,
+    }
+    filename = f"report_{mission.name[:40].replace(' ', '_')}_{mission_id[:8]}.json"
+    return Response(
+        content=json.dumps(payload, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.delete("/{mission_id}", status_code=204)

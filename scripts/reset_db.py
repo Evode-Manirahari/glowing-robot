@@ -16,10 +16,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 from app.database import engine, Base
 # Import all models so they register with Base.metadata
-import app.models.user       # noqa: F401
-import app.models.mission    # noqa: F401
-import app.models.job        # noqa: F401
+import app.models.user         # noqa: F401
+import app.models.mission      # noqa: F401
+import app.models.job          # noqa: F401
 import app.models.eval_report  # noqa: F401
+import app.models.api_key      # noqa: F401
 
 
 async def reset() -> None:
